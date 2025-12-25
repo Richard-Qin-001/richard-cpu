@@ -1,4 +1,5 @@
 MODULE ?= alu
+HW_DIR  = $(abspath hardware/src)
 HW_SRC = $(abspath hardware/src/$(MODULE).v)
 TB_SRC = $(abspath sim/$(MODULE)_tb.cpp)
 INC_DIR = $(abspath hardware/include)
@@ -9,7 +10,7 @@ BIN       = $(abspath $(BUILD_DIR)/V$(MODULE))
 WAVE_FILE = $(abspath waves/$(MODULE).vcd)
 
 VERILATOR = verilator
-VFLAGS += -Wall --trace --cc --exe
+VFLAGS += -Wall --trace --cc --exe -y $(HW_DIR)
 
 all: $(BIN)
 
