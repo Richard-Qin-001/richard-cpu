@@ -31,10 +31,28 @@ module top (
     wire [4:0] rd = instr[11:7];
     wire [4:0] rs1 = instr[19:15];
     wire [4:0] rs2 = instr[24:20];
-    wire [31:0] imm = {{20{instr[31]}}, instr[31:20]};
 
     wire [31:0] rs1_data, rs2_data;
-    wire reg_we = (opcode == 7'b0010011 || opcode == 7'b0110011);
+
+    wire [31:0] imm_i = {{20{instr[31]}}, instr[31:20]};
+    wire [31:0] imm_s = {{20{instr[31]}}, instr[31:25], instr[11:7]};
+    wire [31:0] imm = (opcode == 7'b0100011) ? imm_s : imm_i;
+
+    wire is_lw = (opcode == 7'b0000011);
+    wire is_sw = (opcode == 7'b0100011);
+    wire reg_we = (opcode == 7'b0010011 || opcode == 7'b0110011 || is_lw);
+
+    wire [31:0] mem_read_data;
+
+    memory data_mem (
+        .clk(clk),
+        .we(is_sw),
+        .addr(alu_out),
+        .write_data(rs2_data),
+        .read_data(mem_read_data)
+    );
+
+    wire [31:0] rf_wd = is_lw ? mem_read_data : alu_out;
 
     regfile rf (
         .clk(clk),
@@ -42,13 +60,13 @@ module top (
         .rs1_addr(rs1),
         .rs2_addr(rs2),
         .rd_addr(rd),
-        .rd_data(alu_out),
+        .rd_data(rf_wd),
         .rs1_data(rs1_data),
         .rs2_data(rs2_data)
     );
 
     wire [31:0] alu_out;
-    wire [31:0] alu_b = (opcode == 7'b0010011) ? imm : rs2_data;
+    wire [31:0] alu_b = (opcode == 7'b0010011 || is_lw || is_sw) ? imm : rs2_data;
     /* verilator lint_off UNUSEDSIGNAL */
     wire alu_zero;
     /* verilator lint_on UNUSEDSIGNAL */
