@@ -37,12 +37,19 @@ int main(int argc, char** argv){
 
     for (int cycle = 0; cycle < 10; cycle++)
     {
+        top->clk = 1;
+        top->eval();
+        top->eval();
+
         std::cout << "Cycle: " << cycle
                   << " | PC: 0x" << std::hex << std::setw(8) << std::setfill('0') << top->debug_pc
                   << " | Instr: 0x" << std::setw(8) << top->debug_instr
                   << " | ALU_Out: 0x" << top->debug_alu_out
                   << std::endl;
-        tick();
+        tfp->dump(main_time++);
+        top->clk = 0;
+        top->eval();
+        tfp->dump(main_time++);
     }
 
     tfp->close();
