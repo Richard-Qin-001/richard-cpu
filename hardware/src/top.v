@@ -14,7 +14,7 @@ module top (
 
     memory inst_mem (
         .clk(clk),
-        .we(1'b0),
+        .be(4'b0000),
         .addr(pc),
         .write_data(32'b0),
         .read_data(instr)
@@ -101,19 +101,59 @@ module top (
     wire is_sw = (opcode == OP_S_TYPE);
     wire reg_we = (opcode == OP_I_ALU || opcode == OP_R_TYPE || is_lw || 
                opcode == OP_LUI || opcode == OP_AUIPC || is_jal || is_jalr);
+    
+
+    reg [31:0] mem_write_data;
+    always @(*) begin
+        case (funct3)
+            3'b000: mem_write_data = {4{rs2_data[7:0]}};
+            3'b001: mem_write_data = {2{rs2_data[15:0]}};
+            3'b010: mem_write_data = rs2_data;
+            default: mem_write_data = rs2_data;
+        endcase
+    end
+
+    reg [3:0] mem_be;
+    always @(*) begin
+        if (is_sw) begin
+            case (funct3)
+                3'b000: mem_be = 4'b0001 << alu_out[1:0];
+                3'b001: mem_be = 4'b0011 << alu_out[1:0];
+                3'b010: mem_be = 4'b1111;
+                default: mem_be = 4'b0000;
+            endcase
+        end
+        else begin
+            mem_be = 4'b0000;
+        end
+    end
 
     wire [31:0] mem_read_data;
-
     memory data_mem (
         .clk(clk),
-        .we(is_sw),
+        .be(mem_be),
         .addr(alu_out),
-        .write_data(rs2_data),
+        .write_data(mem_write_data),
         .read_data(mem_read_data)
     );
 
+    reg [31:0] mem_data_ext;
+    always @(*) begin
+        case (funct3)
+            3'b000: mem_data_ext = {{24{mem_read_data[7]}}, mem_read_data[7:0]};
+            3'b001: mem_data_ext = {{16{mem_read_data[15]}}, mem_read_data[15:0]};
+            3'b010: mem_data_ext = mem_read_data;
+            3'b100: mem_data_ext = {24'b0, mem_read_data[7:0]};
+            3'b101: mem_data_ext = {16'b0, mem_read_data[15:0]};
+            default: mem_data_ext = mem_read_data;
+        endcase
+    end
+
     /* verilator lint_off UNOPTFLAT */
-    wire [31:0] rf_wd = is_lw ? mem_read_data : (is_jal || is_jalr) ? pc_plus4 : alu_out;
+    wire [31:0] rf_wd = (opcode == OP_I_LOAD) ? mem_data_ext : 
+                        (is_jal || is_jalr)   ? pc_plus4 : 
+                        (opcode == OP_LUI)    ? imm_u :
+                        alu_out;
     /* verilator lint_on UNOPTFLAT */
 
     regfile rf (

@@ -35,7 +35,7 @@ int main(int argc, char** argv){
     top->eval();
     std::cout << "Reset de-asserted." << std::endl;
 
-    for (int cycle = 0; cycle < 10; cycle++)
+    for (int cycle = 0; cycle < 20; cycle++)
     {
         top->clk = 1;
         top->eval();
