@@ -1,3 +1,4 @@
+`include "defines"
 module top (
     input wire clk,
     input wire rst_n,
@@ -6,14 +7,6 @@ module top (
     output wire [31:0] debug_alu_out
 );
     reg [31:0] pc;
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            pc <= 32'b0;
-        end
-        else begin
-            pc <= pc + 4;
-        end
-    end
 
     /* verilator lint_off UNUSEDSIGNAL */
     wire [31:0] instr;
@@ -36,7 +29,26 @@ module top (
 
     wire [31:0] imm_i = {{20{instr[31]}}, instr[31:20]};
     wire [31:0] imm_s = {{20{instr[31]}}, instr[31:25], instr[11:7]};
+    wire [31:0] imm_b = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
     wire [31:0] imm = (opcode == 7'b0100011) ? imm_s : imm_i;
+    
+    wire is_beq = (opcode == 7'b1100011);
+    wire take_branch = is_beq && alu_zero;
+
+    wire [31:0] pc_next;
+    wire [31:0] pc_plus4 = pc + 4;
+    wire [31:0] pc_target = pc + imm_b;
+
+    assign pc_next = take_branch ? pc_target : pc_plus4;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            pc <= 32'b0;
+        end
+        else begin
+            pc <= pc_next;
+        end
+    end
 
     wire is_lw = (opcode == 7'b0000011);
     wire is_sw = (opcode == 7'b0100011);
@@ -70,10 +82,12 @@ module top (
     /* verilator lint_off UNUSEDSIGNAL */
     wire alu_zero;
     /* verilator lint_on UNUSEDSIGNAL */
+    wire [3:0] alu_ctrl = is_beq ? `ALU_SUB : `ALU_ADD;
+
     alu my_alu (
         .a(rs1_data),
         .b(alu_b),
-        .alu_op(4'b0000),
+        .alu_op(alu_ctrl),
         .result(alu_out),
         .zero(alu_zero)
     );
